@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<FilterStatus>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -21,10 +22,14 @@ export default function DashboardPage() {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const fetchTasks = useCallback(
-    async (status?: string) => {
+    async (status?: string, assignee?: string) => {
       setLoading(true);
       setError("");
-      const url = status && status !== "all" ? `/api/tasks?status=${status}` : "/api/tasks";
+      const params = new URLSearchParams();
+      if (status && status !== "all") params.set("status", status);
+      if (assignee) params.set("assignee", assignee);
+      const qs = params.toString();
+      const url = qs ? `/api/tasks?${qs}` : "/api/tasks";
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -47,8 +52,8 @@ export default function DashboardPage() {
       return;
     }
     setUsername(storedName);
-    fetchTasks(filter);
-  }, [filter, fetchTasks, router]);
+    fetchTasks(filter, assigneeFilter);
+  }, [filter, assigneeFilter, fetchTasks, router]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", {
@@ -73,7 +78,7 @@ export default function DashboardPage() {
       throw new Error(json.error ?? "Failed to create task");
     }
     setShowForm(false);
-    fetchTasks(filter);
+    fetchTasks(filter, assigneeFilter);
   }
 
   async function handleUpdate(data: Partial<Task>) {
@@ -91,7 +96,7 @@ export default function DashboardPage() {
       throw new Error(json.error ?? "Failed to update task");
     }
     setEditingTask(null);
-    fetchTasks(filter);
+    fetchTasks(filter, assigneeFilter);
   }
 
   async function handleDelete(id: string) {
@@ -105,7 +110,7 @@ export default function DashboardPage() {
       setError(json.error ?? "Failed to delete task");
       return;
     }
-    fetchTasks(filter);
+    fetchTasks(filter, assigneeFilter);
   }
 
   const handleStatusChange = useCallback(
@@ -122,9 +127,9 @@ export default function DashboardPage() {
         const json = await res.json();
         throw new Error(json.error ?? "Failed to update status");
       }
-      fetchTasks(filter);
+      fetchTasks(filter, assigneeFilter);
     },
-    [token, filter, fetchTasks]
+    [token, filter, assigneeFilter, fetchTasks]
   );
 
   const filters: { label: string; value: FilterStatus }[] = [
@@ -159,21 +164,35 @@ export default function DashboardPage() {
       <main className="max-w-4xl mx-auto px-6 py-8">
         {/* Actions bar */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex gap-2" data-testid="status-filter">
-            {filters.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setFilter(f.value)}
-                data-testid={`filter-${f.value}`}
-                className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${
-                  filter === f.value
-                    ? "bg-blue-600 text-white"
-                    : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="flex items-center gap-4">
+            <div className="flex gap-2" data-testid="status-filter">
+              {filters.map((f) => (
+                <button
+                  key={f.value}
+                  onClick={() => setFilter(f.value)}
+                  data-testid={`filter-${f.value}`}
+                  className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${
+                    filter === f.value
+                      ? "bg-blue-600 text-white"
+                      : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
+                  }`}
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <select
+              data-testid="assignee-filter"
+              aria-label="Filter by assignee"
+              value={assigneeFilter}
+              onChange={(e) => setAssigneeFilter(e.target.value)}
+              className="border border-gray-300 text-sm rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="">All Assignees</option>
+              <option value="admin">Admin</option>
+              <option value="user1">User1</option>
+            </select>
           </div>
 
           <button
@@ -216,7 +235,7 @@ export default function DashboardPage() {
           </p>
         ) : tasks.length === 0 ? (
           <p className="text-gray-400 text-sm text-center py-12" data-testid="empty-state">
-            No tasks found. Add one to get started!
+            No tasks found
           </p>
         ) : (
           <div
@@ -239,7 +258,13 @@ export default function DashboardPage() {
         {!loading && (
           <p className="text-xs text-gray-400 text-center mt-6" data-testid="task-count">
             {tasks.length} task{tasks.length !== 1 ? "s" : ""}
-            {filter !== "all" ? ` with status "${filter}"` : " total"}
+            {filter !== "all" && assigneeFilter
+              ? ` (status: "${filter}", assignee: "${assigneeFilter}")`
+              : filter !== "all"
+              ? ` with status "${filter}"`
+              : assigneeFilter
+              ? ` assigned to "${assigneeFilter}"`
+              : " total"}
           </p>
         )}
       </main>
