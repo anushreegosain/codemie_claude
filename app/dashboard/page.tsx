@@ -12,7 +12,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<FilterStatus>("all");
-  const [assigneeFilter, setAssigneeFilter] = useState<string>("");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -27,7 +27,7 @@ export default function DashboardPage() {
       setError("");
       const params = new URLSearchParams();
       if (status && status !== "all") params.set("status", status);
-      if (assignee) params.set("assignee", assignee);
+      if (assignee && assignee !== "all") params.set("assignee", assignee);
       const qs = params.toString();
       const url = qs ? `/api/tasks?${qs}` : "/api/tasks";
       const res = await fetch(url, {
@@ -164,35 +164,21 @@ export default function DashboardPage() {
       <main className="max-w-4xl mx-auto px-6 py-8">
         {/* Actions bar */}
         <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <div className="flex gap-2" data-testid="status-filter">
-              {filters.map((f) => (
-                <button
-                  key={f.value}
-                  onClick={() => setFilter(f.value)}
-                  data-testid={`filter-${f.value}`}
-                  className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${
-                    filter === f.value
-                      ? "bg-blue-600 text-white"
-                      : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
-                  }`}
-                >
-                  {f.label}
-                </button>
-              ))}
-            </div>
-
-            <select
-              data-testid="assignee-filter"
-              aria-label="Filter by assignee"
-              value={assigneeFilter}
-              onChange={(e) => setAssigneeFilter(e.target.value)}
-              className="border border-gray-300 text-sm rounded-lg px-3 py-1.5 bg-white text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Assignees</option>
-              <option value="admin">Admin</option>
-              <option value="user1">User1</option>
-            </select>
+          <div className="flex gap-2" data-testid="status-filter">
+            {filters.map((f) => (
+              <button
+                key={f.value}
+                onClick={() => setFilter(f.value)}
+                data-testid={`filter-${f.value}`}
+                className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${
+                  filter === f.value
+                    ? "bg-blue-600 text-white"
+                    : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
 
           <button
@@ -202,6 +188,30 @@ export default function DashboardPage() {
           >
             + Add Task
           </button>
+        </div>
+
+        {/* Assignee filter */}
+        <div className="flex flex-wrap gap-2 mb-6 items-center" data-testid="assignee-filter">
+          <span className="text-sm text-gray-500 mr-1">Assignee:</span>
+          {[
+            { label: "All Assignees", value: "all" },
+            { label: "admin",         value: "admin" },
+            { label: "user1",         value: "user1" },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setAssigneeFilter(opt.value)}
+              data-testid={`assignee-filter-${opt.value}`}
+              aria-pressed={assigneeFilter === opt.value}
+              className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${
+                assigneeFilter === opt.value
+                  ? "bg-blue-600 text-white"
+                  : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
 
         {/* Task form modal */}
@@ -258,12 +268,12 @@ export default function DashboardPage() {
         {!loading && (
           <p className="text-xs text-gray-400 text-center mt-6" data-testid="task-count">
             {tasks.length} task{tasks.length !== 1 ? "s" : ""}
-            {filter !== "all" && assigneeFilter
-              ? ` (status: "${filter}", assignee: "${assigneeFilter}")`
+            {filter !== "all" && assigneeFilter !== "all"
+              ? ` with status "${filter}" assigned to ${assigneeFilter}`
               : filter !== "all"
               ? ` with status "${filter}"`
-              : assigneeFilter
-              ? ` assigned to "${assigneeFilter}"`
+              : assigneeFilter !== "all"
+              ? ` assigned to ${assigneeFilter}`
               : " total"}
           </p>
         )}

@@ -2,27 +2,23 @@
 
 **Stage**: 5 — Implementation
 **File modified**: `app/dashboard/page.tsx`
-**Date**: 2026-11-24
+**Date**: 2026-11-25
 
 ---
 
 ## Tasks
 
-TASK-01 | app/dashboard/page.tsx | Added `const [assigneeFilter, setAssigneeFilter] = useState<string>("")` immediately after the `filter` state declaration on line 14. No other changes in this task.
+TASK-01 | app/dashboard/page.tsx | Changed `useState<string>("")` to `useState<string>("all")` for assigneeFilter state initialisation. The "all" value is used as the sentinel for "no filter active", consistent with how the status filter works.
 
-TASK-02 | app/dashboard/page.tsx | Extended `fetchTasks` useCallback signature from `async (status?: string)` to `async (status?: string, assignee?: string)`; replaced single-string URL construction with URLSearchParams: `const params = new URLSearchParams(); if (status && status !== "all") params.set("status", status); if (assignee) params.set("assignee", assignee); const qs = params.toString(); const url = qs ? \`/api/tasks?${qs}\` : "/api/tasks";`. Dep array `[token, router]` unchanged.
+TASK-02 | app/dashboard/page.tsx | Changed `if (assignee) params.set("assignee", assignee)` to `if (assignee && assignee !== "all") params.set("assignee", assignee)` in the fetchTasks useCallback body. This ensures the "all" sentinel is treated as an absent filter and no assignee param is appended to the API request URL.
 
-TASK-03 | app/dashboard/page.tsx | In `useEffect`, changed `fetchTasks(filter)` to `fetchTasks(filter, assigneeFilter)` and updated dep array to `[filter, assigneeFilter, fetchTasks, router]`.
+TASK-03 | app/dashboard/page.tsx | Verified — useEffect already calls `fetchTasks(filter, assigneeFilter)` with dep array `[filter, assigneeFilter, fetchTasks, router]`. No change required.
 
-TASK-04 | app/dashboard/page.tsx | Updated all three plain async function call sites — `handleCreate`, `handleUpdate`, and `handleDelete` — from `fetchTasks(filter)` to `fetchTasks(filter, assigneeFilter)`.
+TASK-04 | app/dashboard/page.tsx | Verified — handleCreate, handleUpdate, and handleDelete all already call `fetchTasks(filter, assigneeFilter)`. No change required.
 
-TASK-05 | app/dashboard/page.tsx | In `handleStatusChange` useCallback, changed `fetchTasks(filter)` to `fetchTasks(filter, assigneeFilter)` and updated dep array from `[token, filter, fetchTasks]` to `[token, filter, assigneeFilter, fetchTasks]`.
+TASK-05 | app/dashboard/page.tsx | Replaced the `<select data-testid="assignee-filter">` block and its `<div className="flex items-center gap-4">` wrapper with a pill-button row placed after the closing `</div>` of the status-filter/actions bar. The new element is `<div className="flex flex-wrap gap-2 mb-6 items-center" data-testid="assignee-filter">` containing three pill buttons with data-testid values `assignee-filter-all`, `assignee-filter-admin`, and `assignee-filter-user1`. The original layout of the actions bar (status-filter div as direct child of the flex justify-between container) is restored.
 
-TASK-06 | app/dashboard/page.tsx | Wrapped existing `<div className="flex gap-2" data-testid="status-filter">` in a new `<div className="flex items-center gap-4">` and added sibling `<select data-testid="assignee-filter" aria-label="Filter by assignee" ...>` with options: All Assignees (value ""), Admin (value "admin"), User1 (value "user1"). All existing data-testid attributes (status-filter, filter-all, filter-todo, filter-in-progress, filter-done, add-task-button) remain unchanged.
-
-TASK-07 | app/dashboard/page.tsx | Changed empty-state paragraph text from "No tasks found. Add one to get started!" to "No tasks found". The `data-testid="empty-state"` attribute is unchanged.
-
-TASK-08 | app/dashboard/page.tsx | Replaced single-branch task-count conditional with four-branch expression: both filters active shows `(status: "${filter}", assignee: "${assigneeFilter}")`, only status active shows `with status "${filter}"`, only assignee active shows `assigned to "${assigneeFilter}"`, neither active shows `total`. The `data-testid="task-count"` attribute is unchanged.
+TASK-06 | app/dashboard/page.tsx | Updated the task-count four-branch ternary to use `assigneeFilter !== "all"` checks instead of truthiness checks. Both-active branch now shows ` with status "${filter}" assigned to ${assigneeFilter}`; only-assignee branch shows ` assigned to ${assigneeFilter}` (no extra quotes around the value interpolation). The `data-testid="task-count"` attribute is unchanged.
 
 ---
 
@@ -62,7 +58,7 @@ Route (app)                              Size     First Load JS
   /api/auth/logout                       0 B                0 B
   /api/tasks                             0 B                0 B
   /api/tasks/[id]                        0 B                0 B
-  /dashboard                             3.62 kB        90.9 kB
+  /dashboard                             3.61 kB        90.9 kB
 ```
 
 Result: passed
