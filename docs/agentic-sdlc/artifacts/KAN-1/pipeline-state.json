@@ -1,0 +1,42 @@
+{
+  "storyKey": "KAN-1",
+  "startedAt": "2026-11-25T00:00:00.000Z",
+  "stages": {
+    "requirements": {
+      "status": "completed",
+      "completedAt": "2026-11-25T00:05:00.000Z",
+      "artifact": "requirements.md"
+    },
+    "architecture": {
+      "status": "completed",
+      "completedAt": "2026-11-25T05:59:42.000Z",
+      "artifact": "architecture.md"
+    },
+    "design-review": {
+      "status": "completed",
+      "completedAt": "2026-11-25T06:10:00.000Z",
+      "artifact": "design-review.md"
+    },
+    "impl-plan": {
+      "status": "completed",
+      "completedAt": "2026-11-25T06:30:00.000Z",
+      "artifact": "impl-plan.md"
+    },
+    "implementation": {
+      "status": "completed",
+      "completedAt": "2026-11-25T06:08:47.063Z",
+      "artifact": "implementation-log.md"
+    },
+    "review": {
+      "status": "completed",
+      "completedAt": "2026-11-25T06:15:55.588Z",
+      "artifact": "review-findings.md"
+    },
+    "verify": {
+      "status": "pending"
+    },
+    "pr": {
+      "status": "pending"
+    }
+  }
+}

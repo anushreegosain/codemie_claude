@@ -10,9 +10,10 @@ const statusColors: Record<string, string> = {
 };
 
 const priorityColors: Record<string, string> = {
-  low: "bg-blue-50 text-blue-600",
-  medium: "bg-orange-50 text-orange-600",
-  high: "bg-red-50 text-red-600",
+  critical: "bg-red-100 text-red-700",
+  high: "bg-orange-50 text-orange-600",
+  medium: "bg-yellow-50 text-yellow-700",
+  low: "bg-green-50 text-green-700",
 };
 
 const statusLabels: Record<string, string> = {
@@ -91,10 +92,10 @@ export default function TaskCard({ task, onEdit, onDelete }: TaskCardProps) {
           {statusLabels[task.status]}
         </span>
         <span
-          className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${priorityColors[task.priority]}`}
+          className={`text-xs font-medium px-2 py-0.5 rounded-full capitalize ${priorityColors[task.priority ?? ""] ?? "bg-gray-100 text-gray-400"}`}
           data-testid="task-priority"
         >
-          {task.priority}
+          {task.priority ?? "—"}
         </span>
         {task.dueDate && (
           <span className="text-xs text-gray-600" data-testid="task-duedate">
