@@ -1,6 +1,6 @@
-# Code Review Findings — KAN-1: Task Priority Levels
+# Code Review Findings — KAN-1: Task Priority Levels (Re-Review)
 
-**Stage:** 6 — Code Review
+**Stage:** 6 — Code Review (Re-Review after rebase)
 **Story:** KAN-1
 **Branch:** feature/kan-1-task-priority-levels
 **Base (PR target):** feature/kt-12-task-search-filtering
@@ -11,9 +11,7 @@
 
 ## Executive Summary
 
-The KAN-1 priority levels feature is **correctly and completely implemented** against all 18 FRs. Every functional requirement is satisfied. The blocking issue is a **branch divergence**: the KAN-1 branch was created from commit `c6ad1f1` (the original SDLC pipeline commit), which predates the KT-11 due-dates work (`04a4b67`) and the KT-12 search/filter work (`acb3e07`) that now sit at the tip of `feature/kt-12-task-search-filtering`. A direct merge would overwrite both of those features, removing four `data-testid` attributes that exist in the target branch and stripping out test infrastructure.
-
-**Required fix before Stage 7:** Rebase `feature/kan-1-task-priority-levels` onto `feature/kt-12-task-search-filtering`, resolve merge conflicts, and confirm that all KT-11 and KT-12 features co-exist with the KAN-1 additions.
+The KAN-1 priority levels feature is **correctly and completely implemented** against all 18 FRs on the rebased branch. The previous No-Go verdict was due solely to the branch being behind `feature/kt-12-task-search-filtering`. That rebase has been completed and all conflicts resolved. All KT-11 (due dates) and KT-12 (search and filtering) features co-exist with the KAN-1 additions. No High or Medium severity findings were identified.
 
 ---
 
@@ -21,134 +19,109 @@ The KAN-1 priority levels feature is **correctly and completely implemented** ag
 
 ### High Severity
 
-**Finding RV-01**
-- Severity: High
-- File + Location: `components/TaskCard.tsx` — badge rendering block
-- Issue: Compared against `feature/kt-12-task-search-filtering` (the PR target), two `data-testid` attributes are absent from the KAN-1 working tree: `task-duedate` and `task-overdue-badge`. These were added by KT-11 (due-dates story) in commit `04a4b67`. The KAN-1 branch was not rebased after KT-11 merged, so the working tree never received them. Merging KAN-1 as-is would delete these testids from the codebase and regress the KT-11 feature entirely (no due-date display, no overdue badge, `formatDueDate` helper gone, `isTaskOverdue` import gone).
-- Recommendation: Rebase `feature/kan-1-task-priority-levels` onto `feature/kt-12-task-search-filtering`. In the resulting TaskCard.tsx, preserve the KT-11 `dueDate` block and `task-overdue-badge` badge alongside the KAN-1 four-level `priorityColors` map and undefined guard.
+No issues found.
 
 ---
 
-**Finding RV-02**
-- Severity: High
-- File + Location: `components/TaskForm.tsx` — form fields
-- Issue: The `data-testid="task-duedate-input"` attribute (a `<input type="date">` added by KT-11) is absent from the KAN-1 working tree. Same root cause as RV-01. Merging would remove the due-date form field and lose `dueDate` state handling.
-- Recommendation: Addressed by the same rebase fix as RV-01. After rebasing, preserve the `dueDate` input field from KT-11 alongside KAN-1's Critical priority option.
+### Medium Severity
 
----
-
-**Finding RV-03**
-- Severity: High
-- File + Location: `app/dashboard/page.tsx` — filter bar section
-- Issue: The `data-testid="search-input"` attribute (a text input added by KT-12 for task search) is absent from the KAN-1 working tree. KT-12 added `searchTerm` state, a debounced search effect, and the search `<input>` to the dashboard. The KAN-1 implementation also replaces KT-12's combined `fetchTasks(status, priority, search)` signature with a simpler `fetchTasks(status)` only, removing server-side priority and search query forwarding that KT-12 built.
-- Recommendation: After rebasing, retain the KT-12 search input and debounced-fetch logic. Integrate KAN-1's client-side priority filter and sort on top of the returned task set, consistent with the KAN-1 architecture decision. The `fetchTasks` function should pass status (and optionally search) to the API; priority filtering remains client-side per architecture.md.
-
----
-
-**Finding RV-04**
-- Severity: High
-- File + Location: `lib/types.ts` — `Task` interface
-- Issue: The `dueDate?: string` field added by KT-11 is absent from the KAN-1 `Task` interface. Merging would remove the field from the type, causing TypeScript compilation errors in any KT-11 component that references `task.dueDate` once the rebase brings those components back.
-- Recommendation: After rebasing, the `Task` interface must retain both `dueDate?: string` (KT-11) and the KAN-1 change of `priority?: TaskPriority` (optional). Both are optional fields; there is no conflict.
-
----
-
-**Finding RV-05**
-- Severity: High
-- File + Location: `lib/store.ts` — `getAllTasks` function signature
-- Issue: The KT-12 version of `getAllTasks` accepts a `search?: string` parameter and applies a case-insensitive title/description filter. The KAN-1 version removes this parameter. If merged, the `?search=` query parameter on `GET /api/tasks` — which the KT-12 dashboard uses for its debounced search — would silently stop working.
-- Recommendation: After rebasing, the final `getAllTasks` signature must carry all four filter parameters: `username`, `status?`, `assignee?`, `search?`, `priority?`. The KAN-1 `priority?` parameter is additive; inserting it after `search?` preserves the KT-12 call sites.
-
----
-
-**Finding RV-06**
-- Severity: High
-- File + Location: `package.json` — `devDependencies` and `scripts`
-- Issue: The KAN-1 branch removes all test infrastructure that KT-12 introduced: `jest`, `jest-environment-jsdom`, `@testing-library/jest-dom`, `@testing-library/react`, `@testing-library/user-event`, `@types/jest`, `ts-node`, and the `test`, `test:watch`, `test:coverage` scripts. Merging would break any CI pipeline that runs `npm test`, and would strip the ability to run unit/integration tests that KT-12 added.
-- Recommendation: After rebasing, `package.json` must retain all testing devDependencies and scripts from KT-12 unchanged.
+No issues found.
 
 ---
 
 ### Low Severity
 
-**Finding RV-07**
+**Finding RV-01**
 - Severity: Low
-- File + Location: `manual-tests/test-cases.md` — no KAN-1 entries
-- Issue: No new test cases have been added to `manual-tests/test-cases.md` for KAN-1 FRs. The requirements document lists existing test cases (TC-UI-010, TC-API-009, TC-API-013, TC-API-005) that relate to priority, but these exercise `"high"` only. The following FRs have no corresponding manual test case: FR-05 (`GET ?priority=critical`), FR-06 (combined `?status=todo&priority=high`), FR-07 (PUT with `"critical"`), FR-10 (safe render for undefined priority), FR-13 (priority filter bar testids), FR-14 (priority filter click behavior), FR-15 (active button visual state), FR-17 (sort control), FR-18 (sort + filter combined).
-- Recommendation: Add manual test cases TC-UI-015 through TC-UI-019 (priority filter, sort, combined filter, safe render) and TC-API-016 through TC-API-018 (GET with priority param, combined, PUT critical) to `manual-tests/test-cases.md` before Stage 7.
+- File + Location: `manual-tests/test-cases.md` — entire file
+- Issue: No new test cases were added to `manual-tests/test-cases.md` for KAN-1-specific FRs. The existing cases TC-UI-010 (create with priority), TC-API-009 (POST with `priority: "high"`), and TC-API-013 (PUT with `priority: "high"`) exercise the original three priority values only. The following FRs have no corresponding manual test case: FR-01/FR-07/FR-09/FR-11 (critical priority specifically), FR-05 (`GET ?priority=critical`), FR-06 (combined `?status=todo&priority=high`), FR-13 (priority filter bar testid presence), FR-14 (priority filter click behavior), FR-15 (active button visual state), FR-17 (sort-priority-button), FR-18 (sort + filter combined).
+- Recommendation: Add manual test cases for the critical tier (create/update/filter/badge) and for the priority filter and sort controls before Stage 7 automation.
+
+---
+
+**Finding RV-02**
+- Severity: Low
+- File + Location: `app/dashboard/page.tsx` — `fetchTasks` call in `useEffect` at line 78
+- Issue: NFR-06 states "No additional API calls should be made when switching priority filter (filter/sort state is managed client-side)." The implementation calls `fetchTasks` (which makes an API request) when `filterPriority` changes, via `useEffect(() => { fetchTasks(filterStatus, filterPriority, searchTerm); }, [filterStatus, filterPriority])`. The architecture explicitly designed priority filtering as client-side only. The sort correctly remains client-side (no API call when `sortByPriority` toggles). All FRs are satisfied — the results are correct either way — but the approach deviates from the spec.
+- Recommendation: If NFR-06 compliance is required, fetch all tasks without a priority param and apply the priority filter inside the `displayedTasks` derivation (client-side), consistent with how the overdue filter works. This is not blocking.
 
 ---
 
 ## Verified Items
 
-**KAN-1 FR implementation — all 18 FRs satisfied (confirmed)**
+**All 18 KAN-1 FRs satisfied — confirmed**
 
-| FR | Check | Result |
-|---|---|---|
-| FR-01 — extend TaskPriority to include "critical" | `lib/types.ts` line 2 | Confirmed |
-| FR-02 — priority optional on Task interface | `lib/types.ts` line 9: `priority?: TaskPriority` | Confirmed |
-| FR-03 — default priority "medium" on creation | `app/api/tasks/route.ts` line 46: `validPriorities.includes(priority) ? priority : "medium"` | Confirmed |
-| FR-04 — seed tasks t1–t5 unchanged | SEED_TASKS identical to KT-12 branch baseline | Confirmed |
-| FR-05 — priority query param on GET /api/tasks | route.ts line 20–22, store.ts line 112 | Confirmed |
-| FR-06 — combined status+priority AND filter | store.ts successive filter pattern lines 110–112 | Confirmed |
-| FR-07 — PUT accepts "critical" | `app/api/tasks/[id]/route.ts` line 46 | Confirmed |
-| FR-08 — API response shape backward compatible | No existing fields removed from response shape | Confirmed |
-| FR-09 — color-coded priority badge | TaskCard.tsx: critical=red, high=orange, medium=yellow, low=green | Confirmed |
-| FR-10 — safe render for undefined priority | `priorityColors[task.priority ?? ""] ?? "bg-gray-100 text-gray-400"` and `{task.priority ?? "—"}` | Confirmed |
-| FR-11 — Critical option in priority select | TaskForm.tsx line 101: `<option value="critical">Critical</option>` | Confirmed |
-| FR-12 — default selection is Medium | `useState<TaskPriority>(initial?.priority ?? "medium")` | Confirmed |
-| FR-13 — priority filter bar testids | `data-testid="priority-filter"` container + five `filter-priority-{all,low,medium,high,critical}` buttons | Confirmed |
-| FR-14 — priority filter click behavior | `onClick={() => setFilterPriority(pf.value)}` + client-side filter on `displayedTasks` | Confirmed |
-| FR-15 — active filter visual state | Active: `bg-blue-600 text-white`, inactive: `border border-gray-300` — matches status filter pattern | Confirmed |
-| FR-16 — combined UI filtering | Priority filters `tasks` (status-filtered from API); changing either does not reset the other | Confirmed |
-| FR-17 — priority sort control | `data-testid="sort-priority-button"` toggles `sortByPriority`, PRIORITY_ORDER weight map, undefined sorts to 0 | Confirmed |
-| FR-18 — sort within filtered set | Sort applied after priority filter on `displayedTasks` | Confirmed |
+| FR | Evidence |
+|---|---|
+| FR-01 — extend TaskPriority to include "critical" | `lib/types.ts` line 2: `"low" \| "medium" \| "high" \| "critical"` |
+| FR-02 — priority optional on Task interface | `lib/types.ts` line 9: `priority?: TaskPriority` |
+| FR-03 — default priority "medium" on creation | `app/api/tasks/route.ts` line 76: `validPriorities.includes(priority) ? priority : "medium"` |
+| FR-04 — seed tasks t1–t5 unchanged | No diff in `lib/store.ts` between KAN-1 and KT-12; SEED_TASKS identical |
+| FR-05 — priority query param on GET /api/tasks | `route.ts` lines 21, 32–37, 39; `store.ts` line 126 |
+| FR-06 — combined status+priority AND filter | `store.ts` successive filter: status → assignee → search → priority |
+| FR-07 — PUT accepts "critical" | `app/api/tasks/[id]/route.ts` line 59: validPriorities includes "critical" |
+| FR-08 — API response shape backward compatible | No existing fields removed from any response shape |
+| FR-09 — color-coded priority badge | `TaskCard.tsx`: critical=red-100/red-700, high=orange-50/orange-600, medium=yellow-50/yellow-700, low=green-50/green-700 |
+| FR-10 — safe render for undefined priority | `priorityColors[task.priority ?? ""] ?? "bg-gray-100 text-gray-400"` and `{task.priority ?? "—"}` |
+| FR-11 — Critical option in priority select | `TaskForm.tsx` line 109: `<option value="critical">Critical</option>`; four options total |
+| FR-12 — default selection is Medium | `useState<TaskPriority>(initial?.priority ?? "medium")` |
+| FR-13 — priority filter bar testids | `data-testid="priority-filter"` container + five buttons: `filter-priority-all/low/medium/high/critical` |
+| FR-14 — priority filter click behavior | `onClick={() => setFilterPriority(pf.value)}` triggers `useEffect` → `fetchTasks` |
+| FR-15 — active filter visual state | Active: `bg-blue-600 text-white`; inactive: `border border-gray-300 text-gray-600` — matches status filter pattern |
+| FR-16 — combined UI filtering | Both `filterStatus` and `filterPriority` are passed to `fetchTasks`; changing one does not reset the other |
+| FR-17 — priority sort control | `data-testid="sort-priority-button"` toggles `sortByPriority`; `PRIORITY_ORDER: { critical:4, high:3, medium:2, low:1 }`; undefined tasks get weight 0 and sort to bottom |
+| FR-18 — sort within filtered set | Sort applied to `displayedTasks` after priority/overdue filtering |
 
 **Seed tasks t1–t5 unchanged — confirmed**
-Both the KAN-1 working tree and the KT-12 branch have identical SEED_TASKS definitions. No seed task id, title, status, priority, assignee, or timestamp was modified.
+`lib/store.ts` has zero diff against `feature/kt-12-task-search-filtering`. SEED_TASKS definitions for t1–t5 (id, title, description, status, priority, assignee, createdAt, updatedAt) are byte-for-byte identical to the base branch.
 
-**All existing API route paths and HTTP verbs preserved — confirmed**
-`GET|POST /api/tasks`, `GET|PUT|DELETE /api/tasks/:id`, `POST /api/auth/login`, `POST /api/auth/logout` all present. No path or verb changes.
+**All existing data-testid attributes preserved — confirmed**
+Grep of the diff against the base branch (`git diff feature/kt-12-task-search-filtering -- components/ app/ | grep "data-testid"`) shows no testid removals. All pre-existing testids remain: `task-card`, `task-id`, `task-title`, `task-description`, `task-status`, `task-priority`, `task-duedate`, `task-overdue-badge`, `task-assignee`, `edit-task-button`, `delete-task-button`, `task-form`, `task-title-input`, `task-description-input`, `task-status-select`, `task-priority-select`, `task-duedate-input`, `task-assignee-input`, `task-form-error`, `task-submit-button`, `task-cancel-button`, `status-filter`, `filter-all/todo/in-progress/done/overdue`, `add-task-button`, `search-input`, `task-modal`, `dashboard-error`, `loading-indicator`, `empty-state`, `task-list`, `task-count`, `logged-in-user`, `logout-button`. New KAN-1 testids added: `priority-filter`, `filter-priority-all/low/medium/high/critical`, `sort-priority-button`.
 
-**New priority field is optional — confirmed**
-`priority?: TaskPriority` in `lib/types.ts`; POST route defaults to `"medium"` when omitted; PUT route conditionally applies only when provided and valid.
+**No new npm dependencies added — confirmed**
+`git diff feature/kt-12-task-search-filtering -- package.json` produces no output. `dependencies` and `devDependencies` are unchanged.
 
-**Server-side input validation for priority — confirmed**
-`validPriorities: TaskPriority[] = ["low", "medium", "high", "critical"]` validated before use in both POST and PUT handlers.
+**KT-11 features preserved — confirmed**
+- `dueDate?: string` field present on `Task` interface (`lib/types.ts` line 13)
+- `isTaskOverdue` imported and used in `TaskCard.tsx` (line 4, line 105) and `app/dashboard/page.tsx` (line 6, line 156)
+- `data-testid="task-duedate"` present in `TaskCard.tsx` line 101
+- `data-testid="task-overdue-badge"` present in `TaskCard.tsx` line 109
+- Overdue status filter (`filter-overdue`) present in dashboard status filter bar
+- Due date validation in POST and PUT handlers preserved
 
-**No new npm dependencies introduced by KAN-1 — confirmed**
-No entries were added to `dependencies` or `devDependencies` by the KAN-1 implementation. (Note: RV-06 flags the removal of KT-12 test dependencies as a separate high-severity regression.)
+**KT-12 features preserved — confirmed**
+- `data-testid="search-input"` present in `app/dashboard/page.tsx` line 193
+- 300ms debounced search `useEffect` present at line 69–74
+- `search` parameter in `getAllTasks` signature (`lib/store.ts` line 112)
+- `search` query param extracted and forwarded in `app/api/tasks/route.ts` line 20
+- Server-side search filter (title + description, case-insensitive) in `store.ts` lines 118–125
+
+**API contract integrity — confirmed**
+All handlers present and unmodified in verb: `POST /api/auth/login`, `POST /api/auth/logout`, `GET|POST /api/tasks`, `GET|PUT|DELETE /api/tasks/:id`. No path changes, no verb changes.
+
+**New priority field optional in TypeScript interface — confirmed**
+`priority?: TaskPriority` — the `?` is present. All existing tasks without a priority value deserialise and render safely.
+
+**Server-side input validation for new field — confirmed**
+GET route validates `priority` query param and returns 400 for unrecognised values. POST and PUT routes validate against `validPriorities: ["low", "medium", "high", "critical"]` before writing to the store.
 
 ---
 
 ## Required Fixes Before PR
 
-The following **High** severity findings must be resolved before Stage 7 (Verify):
+None. No High severity findings were identified.
 
-| Finding | File(s) | Required Action |
-|---|---|---|
-| RV-01 | `components/TaskCard.tsx` | Rebase onto `feature/kt-12-task-search-filtering`; preserve `task-duedate` and `task-overdue-badge` testids |
-| RV-02 | `components/TaskForm.tsx` | Same rebase; preserve `task-duedate-input` testid and `dueDate` state |
-| RV-03 | `app/dashboard/page.tsx` | Same rebase; preserve `search-input` testid and debounced search logic |
-| RV-04 | `lib/types.ts` | Same rebase; preserve `dueDate?: string` field on `Task` interface |
-| RV-05 | `lib/store.ts` | Same rebase; preserve `search?` parameter in `getAllTasks` |
-| RV-06 | `package.json` | Same rebase; preserve jest/testing-library devDependencies and test scripts |
-
-All six findings share one root cause: **the KAN-1 branch was not rebased onto `feature/kt-12-task-search-filtering` before review**. A single `git rebase feature/kt-12-task-search-filtering` on the KAN-1 branch, followed by conflict resolution that merges KT-11/KT-12 features with KAN-1 additions, resolves all six findings simultaneously.
+Low severity findings RV-01 and RV-02 are noted but do not block Stage 7.
 
 ---
 
 ## Verdict
 
-**Verdict: No-Go**
+**Verdict: Go**
 
-Blocking issues: RV-01, RV-02, RV-03, RV-04, RV-05, RV-06.
-
-Total findings: 7 — 6 High, 0 Medium, 1 Low.
-
-The KAN-1 priority levels feature is correctly implemented in isolation (all 18 FRs satisfied, no logic bugs, no testid regressions within the story scope). The No-Go is entirely due to the branch not being rebased onto the current tip of `feature/kt-12-task-search-filtering`. Once the rebase is performed and conflicts resolved to preserve KT-11 and KT-12 features, re-run Stage 6 to confirm all High findings are cleared before proceeding to Stage 7.
+2 findings total: 0 High, 0 Medium, 2 Low. No blocking issues. All 18 KAN-1 FRs are satisfied. KT-11 and KT-12 features are fully preserved on the rebased branch. Proceed to Stage 7 (Verify).
 
 ---
 
-*Document generated by the Agentic SDLC pipeline — Stage 6: Code Review.*
+*Document generated by the Agentic SDLC pipeline — Stage 6: Code Review (Re-Review).*
 *Story: KAN-1 | Branch: feature/kan-1-task-priority-levels | Date: 2026-11-25*

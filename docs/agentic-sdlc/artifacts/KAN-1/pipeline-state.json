@@ -29,14 +29,18 @@
     },
     "review": {
       "status": "completed",
-      "completedAt": "2026-11-25T06:15:55.588Z",
+      "completedAt": "2026-11-25T07:45:00.000Z",
       "artifact": "review-findings.md"
     },
     "verify": {
-      "status": "pending"
+      "status": "completed",
+      "completedAt": "2026-11-25T06:53:46.557Z",
+      "artifact": "verification-report.md"
     },
     "pr": {
-      "status": "pending"
+      "status": "completed",
+      "completedAt": "2026-11-25T08:00:00.000Z",
+      "artifact": "pr-description.md"
     }
   }
 }
