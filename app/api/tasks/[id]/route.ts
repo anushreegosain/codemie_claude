@@ -56,7 +56,7 @@ export async function PUT(
   }
 
   const validStatuses: TaskStatus[] = ["todo", "in-progress", "done"];
-  const validPriorities: TaskPriority[] = ["low", "medium", "high"];
+  const validPriorities: TaskPriority[] = ["low", "medium", "high", "critical"];
 
   const updated = await store.updateTask(username, params.id, {
     ...(title !== undefined && { title: title.trim() }),

@@ -29,9 +29,9 @@ export async function GET(req: NextRequest) {
   }
 
   // Validate priority value
-  if (priority && !["low", "medium", "high"].includes(priority)) {
+  if (priority && !["low", "medium", "high", "critical"].includes(priority)) {
     return NextResponse.json(
-      { error: "Invalid priority value. Must be low, medium, or high" },
+      { error: "Invalid priority value. Must be low, medium, high, or critical" },
       { status: 400 }
     );
   }
@@ -67,7 +67,7 @@ export async function POST(req: NextRequest) {
   }
 
   const validStatuses: TaskStatus[] = ["todo", "in-progress", "done"];
-  const validPriorities: TaskPriority[] = ["low", "medium", "high"];
+  const validPriorities: TaskPriority[] = ["low", "medium", "high", "critical"];
 
   const task = await store.createTask(username, {
     title: title.trim(),

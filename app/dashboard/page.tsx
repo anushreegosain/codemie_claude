@@ -10,11 +10,19 @@ import TaskForm from "@/components/TaskForm";
 type FilterStatus = TaskStatus | "all" | "overdue";
 type FilterPriority = TaskPriority | "all";
 
+const PRIORITY_ORDER: Record<string, number> = {
+  critical: 4,
+  high: 3,
+  medium: 2,
+  low: 1,
+};
+
 export default function DashboardPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [filter, setFilter] = useState<FilterStatus>("all");
-  const [priorityFilter, setPriorityFilter] = useState<FilterPriority>("all");
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [filterPriority, setFilterPriority] = useState<FilterPriority>("all");
+  const [sortByPriority, setSortByPriority] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -28,26 +36,8 @@ export default function DashboardPage() {
     async (status?: string, priority?: string, search?: string) => {
       setLoading(true);
       setError("");
-      // Skip API call for "overdue" filter (client-side filtering)
-      if (status === "overdue") {
-        const params = new URLSearchParams();
-        if (priority && priority !== "all") params.set("priority", priority);
-        if (search?.trim()) params.set("search", search.trim());
-        const url = params.toString() ? `/api/tasks?${params.toString()}` : "/api/tasks";
-        const res = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.status === 401) {
-          router.push("/");
-          return;
-        }
-        const json = await res.json();
-        setTasks(json.data ?? []);
-        setLoading(false);
-        return;
-      }
       const params = new URLSearchParams();
-      if (status && status !== "all") params.set("status", status);
+      if (status && status !== "all" && status !== "overdue") params.set("status", status);
       if (priority && priority !== "all") params.set("priority", priority);
       if (search?.trim()) params.set("search", search.trim());
       const url = params.toString() ? `/api/tasks?${params.toString()}` : "/api/tasks";
@@ -78,15 +68,15 @@ export default function DashboardPage() {
   // Debounced search effect (300ms delay)
   useEffect(() => {
     const timer = setTimeout(() => {
-      fetchTasks(filter, priorityFilter, searchTerm);
+      fetchTasks(filterStatus, filterPriority, searchTerm);
     }, 300);
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
-  // Immediate fetch on filter/priority changes
+  // Immediate fetch on status or priority filter changes
   useEffect(() => {
-    fetchTasks(filter, priorityFilter, searchTerm);
-  }, [filter, priorityFilter]);
+    fetchTasks(filterStatus, filterPriority, searchTerm);
+  }, [filterStatus, filterPriority]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", {
@@ -111,42 +101,42 @@ export default function DashboardPage() {
       throw new Error(json.error ?? "Failed to create task");
     }
     setShowForm(false);
-    fetchTasks(filter, priorityFilter, searchTerm);
+    fetchTasks(filterStatus, filterPriority, searchTerm);
   }
 
   async function handleUpdate(data: Partial<Task>) {
-      if (!editingTask) return;
-      const res = await fetch(`/api/tasks/${editingTask.id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(data),
-      });
-      if (!res.ok) {
-        const json = await res.json();
-        throw new Error(json.error ?? "Failed to update task");
-      }
-      setEditingTask(null);
-      fetchTasks(filter, priorityFilter, searchTerm);
+    if (!editingTask) return;
+    const res = await fetch(`/api/tasks/${editingTask.id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) {
+      const json = await res.json();
+      throw new Error(json.error ?? "Failed to update task");
     }
+    setEditingTask(null);
+    fetchTasks(filterStatus, filterPriority, searchTerm);
+  }
 
-    async function handleDelete(id: string) {
-      if (!confirm("Delete this task?")) return;
-      const res = await fetch(`/api/tasks/${id}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!res.ok) {
-        const json = await res.json();
-        setError(json.error ?? "Failed to delete task");
-        return;
-      }
-      fetchTasks(filter, priorityFilter, searchTerm);
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this task?")) return;
+    const res = await fetch(`/api/tasks/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      const json = await res.json();
+      setError(json.error ?? "Failed to delete task");
+      return;
     }
+    fetchTasks(filterStatus, filterPriority, searchTerm);
+  }
 
-  const filters: { label: string; value: FilterStatus }[] = [
+  const statusFilters: { label: string; value: FilterStatus }[] = [
     { label: "All", value: "all" },
     { label: "To Do", value: "todo" },
     { label: "In Progress", value: "in-progress" },
@@ -154,29 +144,21 @@ export default function DashboardPage() {
     { label: "Overdue", value: "overdue" },
   ];
 
-
   const priorityFilters: { label: string; value: FilterPriority }[] = [
     { label: "All", value: "all" },
     { label: "Low", value: "low" },
     { label: "Medium", value: "medium" },
     { label: "High", value: "high" },
+    { label: "Critical", value: "critical" },
   ];
-  /**
-   * Filters tasks based on the current filter selection.
-   * For "overdue", filters client-side. For other filters, tasks are already filtered by API.
-   */
-  function getFilteredTasks(): Task[] {
 
-  // Determine if any filters are active (for empty state message)
-  const hasActiveFilters =
-    searchTerm.trim() !== "" || priorityFilter !== "all" || filter !== "all";
-    if (filter === "overdue") {
-      return tasks.filter(isTaskOverdue);
-    }
-    return tasks;
+  // Client-side: overdue filter + priority sort
+  let displayedTasks = filterStatus === "overdue" ? tasks.filter(isTaskOverdue) : tasks;
+  if (sortByPriority) {
+    displayedTasks = [...displayedTasks].sort(
+      (a, b) => (PRIORITY_ORDER[b.priority ?? ""] ?? 0) - (PRIORITY_ORDER[a.priority ?? ""] ?? 0)
+    );
   }
-
-  const displayTasks = getFilteredTasks();
 
   return (
     <div className="min-h-screen">
@@ -201,7 +183,7 @@ export default function DashboardPage() {
       </header>
 
       <main className="max-w-4xl mx-auto px-6 py-8">
-        {/* Search and Priority Filters */}
+        {/* Search */}
         <div className="mb-4">
           <input
             type="text"
@@ -213,40 +195,16 @@ export default function DashboardPage() {
           />
         </div>
 
-        <div className="mb-4">
-          <label className="text-xs font-medium text-gray-600 mb-2 block">Priority</label>
-          <div className="flex gap-2" data-testid="priority-filter">
-            {priorityFilters.map((p) => (
-              <button
-                key={p.value}
-                onClick={() => setPriorityFilter(p.value)}
-                data-testid={`filter-priority-${p.value}`}
-                className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${
-                  priorityFilter === p.value
-                    ? "bg-blue-600 text-white"
-                    : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
-                }`}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Status Filter
-      </header>
-
-      <main className="max-w-4xl mx-auto px-6 py-8">
         {/* Actions bar */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-4">
           <div className="flex gap-2" data-testid="status-filter">
-            {filters.map((f) => (
+            {statusFilters.map((f) => (
               <button
                 key={f.value}
-                onClick={() => setFilter(f.value)}
+                onClick={() => setFilterStatus(f.value)}
                 data-testid={`filter-${f.value}`}
                 className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${
-                  filter === f.value
+                  filterStatus === f.value
                     ? "bg-blue-600 text-white"
                     : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
                 }`}
@@ -262,6 +220,37 @@ export default function DashboardPage() {
             className="bg-blue-600 text-white text-sm px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
           >
             + Add Task
+          </button>
+        </div>
+
+        {/* Priority filter bar */}
+        <div className="flex items-center gap-2 mb-6 flex-wrap">
+          <div className="flex gap-2 flex-wrap" data-testid="priority-filter">
+            {priorityFilters.map((pf) => (
+              <button
+                key={pf.value}
+                onClick={() => setFilterPriority(pf.value)}
+                data-testid={`filter-priority-${pf.value}`}
+                className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${
+                  filterPriority === pf.value
+                    ? "bg-blue-600 text-white"
+                    : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
+                }`}
+              >
+                {pf.label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setSortByPriority((prev) => !prev)}
+            data-testid="sort-priority-button"
+            className={`ml-auto text-sm px-3 py-1.5 rounded-lg font-medium transition ${
+              sortByPriority
+                ? "bg-blue-600 text-white"
+                : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
+            }`}
+          >
+            {sortByPriority ? "Sorted by Priority" : "Sort by Priority"}
           </button>
         </div>
 
@@ -294,7 +283,7 @@ export default function DashboardPage() {
           <p className="text-gray-400 text-sm text-center py-12" data-testid="loading-indicator">
             Loading tasks…
           </p>
-        ) : displayTasks.length === 0 ? (
+        ) : displayedTasks.length === 0 ? (
           <p className="text-gray-400 text-sm text-center py-12" data-testid="empty-state">
             No tasks found. Add one to get started!
           </p>
@@ -303,7 +292,7 @@ export default function DashboardPage() {
             className="grid gap-4 sm:grid-cols-2"
             data-testid="task-list"
           >
-            {displayTasks.map((task) => (
+            {displayedTasks.map((task) => (
               <TaskCard
                 key={task.id}
                 task={task}
@@ -317,8 +306,10 @@ export default function DashboardPage() {
         {/* Task count */}
         {!loading && (
           <p className="text-xs text-gray-400 text-center mt-6" data-testid="task-count">
-            {tasks.length} task{tasks.length !== 1 ? "s" : ""}
-            {filter !== "all" ? ` with status "${filter}"` : " total"}
+            {displayedTasks.length} task{displayedTasks.length !== 1 ? "s" : ""}
+            {filterStatus !== "all" ? ` · status "${filterStatus}"` : ""}
+            {filterPriority !== "all" ? ` · priority "${filterPriority}"` : ""}
+            {filterStatus === "all" && filterPriority === "all" ? " total" : ""}
           </p>
         )}
       </main>
