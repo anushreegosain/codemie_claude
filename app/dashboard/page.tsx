@@ -12,6 +12,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filter, setFilter] = useState<FilterStatus>("all");
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -21,10 +22,14 @@ export default function DashboardPage() {
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
 
   const fetchTasks = useCallback(
-    async (status?: string) => {
+    async (status?: string, assignee?: string) => {
       setLoading(true);
       setError("");
-      const url = status && status !== "all" ? `/api/tasks?status=${status}` : "/api/tasks";
+      const params = new URLSearchParams();
+      if (status && status !== "all") params.set("status", status);
+      if (assignee && assignee !== "all") params.set("assignee", assignee);
+      const qs = params.toString();
+      const url = qs ? `/api/tasks?${qs}` : "/api/tasks";
       const res = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -47,8 +52,8 @@ export default function DashboardPage() {
       return;
     }
     setUsername(storedName);
-    fetchTasks(filter);
-  }, [filter, fetchTasks, router]);
+    fetchTasks(filter, assigneeFilter);
+  }, [filter, assigneeFilter, fetchTasks, router]);
 
   async function handleLogout() {
     await fetch("/api/auth/logout", {
@@ -73,7 +78,7 @@ export default function DashboardPage() {
       throw new Error(json.error ?? "Failed to create task");
     }
     setShowForm(false);
-    fetchTasks(filter);
+    fetchTasks(filter, assigneeFilter);
   }
 
   async function handleUpdate(data: Partial<Task>) {
@@ -91,7 +96,7 @@ export default function DashboardPage() {
       throw new Error(json.error ?? "Failed to update task");
     }
     setEditingTask(null);
-    fetchTasks(filter);
+    fetchTasks(filter, assigneeFilter);
   }
 
   async function handleDelete(id: string) {
@@ -105,7 +110,7 @@ export default function DashboardPage() {
       setError(json.error ?? "Failed to delete task");
       return;
     }
-    fetchTasks(filter);
+    fetchTasks(filter, assigneeFilter);
   }
 
   const handleStatusChange = useCallback(
@@ -122,9 +127,9 @@ export default function DashboardPage() {
         const json = await res.json();
         throw new Error(json.error ?? "Failed to update status");
       }
-      fetchTasks(filter);
+      fetchTasks(filter, assigneeFilter);
     },
-    [token, filter, fetchTasks]
+    [token, filter, assigneeFilter, fetchTasks]
   );
 
   const filters: { label: string; value: FilterStatus }[] = [
@@ -185,6 +190,30 @@ export default function DashboardPage() {
           </button>
         </div>
 
+        {/* Assignee filter */}
+        <div className="flex flex-wrap gap-2 mb-6 items-center" data-testid="assignee-filter">
+          <span className="text-sm text-gray-500 mr-1">Assignee:</span>
+          {[
+            { label: "All Assignees", value: "all" },
+            { label: "admin",         value: "admin" },
+            { label: "user1",         value: "user1" },
+          ].map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setAssigneeFilter(opt.value)}
+              data-testid={`assignee-filter-${opt.value}`}
+              aria-pressed={assigneeFilter === opt.value}
+              className={`text-sm px-3 py-1.5 rounded-lg font-medium transition ${
+                assigneeFilter === opt.value
+                  ? "bg-blue-600 text-white"
+                  : "bg-white border border-gray-300 text-gray-600 hover:bg-gray-50"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
         {/* Task form modal */}
         {(showForm || editingTask) && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" data-testid="task-modal">
@@ -216,7 +245,7 @@ export default function DashboardPage() {
           </p>
         ) : tasks.length === 0 ? (
           <p className="text-gray-400 text-sm text-center py-12" data-testid="empty-state">
-            No tasks found. Add one to get started!
+            No tasks found
           </p>
         ) : (
           <div
@@ -239,7 +268,13 @@ export default function DashboardPage() {
         {!loading && (
           <p className="text-xs text-gray-400 text-center mt-6" data-testid="task-count">
             {tasks.length} task{tasks.length !== 1 ? "s" : ""}
-            {filter !== "all" ? ` with status "${filter}"` : " total"}
+            {filter !== "all" && assigneeFilter !== "all"
+              ? ` with status "${filter}" assigned to ${assigneeFilter}`
+              : filter !== "all"
+              ? ` with status "${filter}"`
+              : assigneeFilter !== "all"
+              ? ` assigned to ${assigneeFilter}`
+              : " total"}
           </p>
         )}
       </main>
